@@ -1,6 +1,5 @@
 package com.purna.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,14 +14,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import com.purna.security.filter.JwtAuthFilter;
 import com.purna.service.MyUserDetailsService;
 
+import lombok.RequiredArgsConstructor;
+
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class WebSecurityConfig {
 
-    @Autowired
-    private MyUserDetailsService myUserDetailsService;
-    @Autowired
-    private JwtAuthFilter jwtfilter;
+    private final MyUserDetailsService myUserDetailsService;
+    private final JwtAuthFilter jwtfilter;
+
     // 🔹 Password Encoder
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -44,6 +45,8 @@ public class WebSecurityConfig {
             
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll()   // login/signup open
+                .requestMatchers("/", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll() // swagger ui open
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/products", "/products/**").permitAll() // allow public browsing
                 .anyRequest().authenticated()              // others protected
             )
             

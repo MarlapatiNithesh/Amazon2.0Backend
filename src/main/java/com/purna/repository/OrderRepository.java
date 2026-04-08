@@ -5,11 +5,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.purna.model.Product;
+import com.purna.model.Order;
 
 @Repository
-public interface ProductsRepository extends JpaRepository<Product, Long> {
+public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    // Allows finding global products by name to prevent duplicate creation
-	Product findByTitle(String title);
+    Page<Order> findByBuyer_Id(Long buyer_Id, Pageable pageable);
 }

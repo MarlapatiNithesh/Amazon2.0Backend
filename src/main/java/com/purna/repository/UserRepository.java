@@ -9,5 +9,4 @@ import com.purna.model.UserObj;
 public interface UserRepository extends JpaRepository<UserObj, Integer> {
 
 	public UserObj findByEmail(String email);
-
 }

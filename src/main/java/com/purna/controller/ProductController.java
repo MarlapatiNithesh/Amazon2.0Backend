@@ -1,67 +1,79 @@
 package com.purna.controller;
 
 import java.util.List;
-import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import com.purna.model.Product;
+import com.purna.model.Listing;
+import com.purna.model.UserObj;
+import com.purna.dto.ListingResponseDTO;
 import com.purna.repository.ProductsRepository;
+import com.purna.repository.UserRepository;
 import com.purna.service.ProductServices;
+import com.purna.exception.ResourceNotFoundException;
+import com.purna.exception.UnauthorizedBargainException;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/products")
+@RequiredArgsConstructor
 public class ProductController {
 
-    @Autowired
-    private ProductServices service;
+    private final ProductServices service;
+    private final ProductsRepository repository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private ProductsRepository repository;
+    private Long getAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getName().equals("anonymousUser")) {
+            throw new UnauthorizedBargainException("Unauthorized Access: No active user session. Please Provide your JWT Bearer token!");
+        }
+        
+        String email = authentication.getName();
+        UserObj user = userRepository.findByEmail(email);
+        if (user == null) {
+            throw new UnauthorizedBargainException("User token is valid, but account doesn't exist.");
+        }
+        
+        return Long.valueOf(user.getId());
+    }
 
-    // GET all products
     @GetMapping
-    public ResponseEntity<?> getProducts() {
-        try {
-            List<Product> products = service.getProducts();
-            return ResponseEntity.ok(products);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Failed to fetch products");
-        }
+    public ResponseEntity<org.springframework.data.domain.Page<com.purna.dto.ProductResponseDTO>> getProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        return ResponseEntity.ok(service.getAvailableProducts(pageable));
     }
 
-    // GET product by id
     @GetMapping("/{id}")
-    public ResponseEntity<?> getProductById(@PathVariable Long id) {
-        try {
-            Optional<Product> product = repository.findById(id);
-
-            if (product.isEmpty()) {
-                return ResponseEntity.status(404).body("Product not found");
-            }
-
-            return ResponseEntity.ok(product.get());
-
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error fetching product");
-        }
+    public ResponseEntity<com.purna.dto.ProductResponseDTO> getProductById(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getProductById(id));
     }
 
-    // POST add product
     @PostMapping
-    public ResponseEntity<?> addProduct(@RequestBody Product product) {
-        try {
-            Product saved= service.addProduct(product);
-            return ResponseEntity.status(201).body(saved);
-
-        } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.status(400).body("Duplicate or invalid data");
-
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error adding product");
-        }
+    public ResponseEntity<ListingResponseDTO> addProduct(@RequestBody @Valid com.purna.dto.ProductRequestDTO request) {
+        Long sellerId = getAuthenticatedUserId();
+        
+        Listing saved = service.addProductWithListing(request, sellerId);
+        ListingResponseDTO response = ListingResponseDTO.builder()
+                .id(saved.getId())
+                .productId(saved.getProduct().getId())
+                .sellerId(Long.valueOf(saved.getSeller().getId()))
+                .price(saved.getPrice())
+                .minAcceptablePrice(saved.getMinAcceptablePrice())
+                .quantity(saved.getQuantity())
+                .status(saved.getStatus())
+                .product(service.mapToProductResponseDTO(saved.getProduct()))
+                .build();
+                
+        return ResponseEntity.status(201).body(response);
     }
 }

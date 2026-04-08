@@ -6,22 +6,50 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
-@Table(name = "offers")
+@Table(name = "offers", indexes = {
+    @Index(name = "idx_offer_buyer", columnList = "buyerId"),
+    @Index(name = "idx_offer_seller", columnList = "sellerId"),
+    @Index(name = "idx_offer_product", columnList = "productId")
+})
+@SQLDelete(sql = "UPDATE offers SET is_deleted = true WHERE id=?")
+@SQLRestriction("is_deleted=false")
 public class Offer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // product on which offer is made
-    private Long productId;
+    // Global catalog lookup
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "productId", referencedColumnName = "id")
+    private Product product;
+
+    // Seller's specific listing holding pricing & inventory
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "listingId", referencedColumnName = "id")
+    private Listing listing;
 
     // buyer who made the offer
-    private Long buyerId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "buyerId", referencedColumnName = "id")
+    private UserObj buyer;
 
     // seller (stored for fast access)
-    private Long sellerId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sellerId", referencedColumnName = "id")
+    private UserObj seller;
 
     // buyer's offered price
     private Double offerPrice;
@@ -29,8 +57,14 @@ public class Offer {
     // seller's counter offer (optional)
     private Double counterPrice;
 
+    // quantity of products buyer wants to purchase
+    private Integer quantity;
+
     // PENDING, ACCEPTED, REJECTED, COUNTERED
     private String status;
+
+    @Builder.Default
+    private Boolean isDeleted = false;
 
     // auto timestamps
     @CreationTimestamp
@@ -38,78 +72,4 @@ public class Offer {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
-
-    // default constructor 
-    public Offer() {}
-
-    // constructor
-    public Offer(Long productId, Long buyerId, Long sellerId, Double offerPrice, String status) {
-        this.productId = productId;
-        this.buyerId = buyerId;
-        this.sellerId = sellerId;
-        this.offerPrice = offerPrice;
-        this.status = status;
-    }
-
-    // getters and setters
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getProductId() {
-        return productId;
-    }
-
-    public void setProductId(Long productId) {
-        this.productId = productId;
-    }
-
-    public Long getBuyerId() {
-        return buyerId;
-    }
-
-    public void setBuyerId(Long buyerId) {
-        this.buyerId = buyerId;
-    }
-
-    public Long getSellerId() {
-        return sellerId;
-    }
-
-    public void setSellerId(Long sellerId) {
-        this.sellerId = sellerId;
-    }
-
-    public Double getOfferPrice() {
-        return offerPrice;
-    }
-
-    public void setOfferPrice(Double offerPrice) {
-        this.offerPrice = offerPrice;
-    }
-
-    public Double getCounterPrice() {
-        return counterPrice;
-    }
-
-    public void setCounterPrice(Double counterPrice) {
-        this.counterPrice = counterPrice;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
 }
